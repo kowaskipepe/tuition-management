@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+prisma/*.db
+prisma/*.db-journal
+.cursor
+.agents
+.claude
+.windsurf
+README.md
