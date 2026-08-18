@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum StudentStatus {
+  ACTIVE
+  PAUSED
+  LEFT
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  WAIVED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  ONLINE
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  GRADED
+  MISSING
+}
+
+model Settings {
+  id             String   @id @default(cuid())
+  teacherName    String   @default("Tuition Master")
+  teacherPhone   String?
+  teacherEmail   String?
+  currency       String   @default("LKR")
+  defaultFee     Int      @default(500000)
+  dueDayOfMonth  Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Subject {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  topics      Topic[]
+  classGroups ClassGroup[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Topic {
+  id          String         @id @default(cuid())
+  subjectId   String
+  subject     Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grade       String
+  title       String
+  description String?
+  sortOrder   Int            @default(0)
+  questions   Question[]
+  sessions    SessionTopic[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([subjectId, grade])
+}
+
+model Student {
+  id             String          @id @default(cuid())
+  name           String
+  guardianName   String?
+  guardianPhone  String?
+  phone          String?
+  school         String?
+  grade          String
+  monthlyFee     Int
+  joinedAt       DateTime        @default(now())
+  status         StudentStatus   @default(ACTIVE)
+  notes          String?
+  enrollments    Enrollment[]
+  attendances    Attendance[]
+  invoices       Invoice[]
+  submissions    Submission[]
+  questionScores QuestionScore[]
+  results        Result[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status])
+  @@index([name])
+}
+
+model ClassGroup {
+  id                String         @id @default(cuid())
+  name              String
+  subjectId         String
+  subject           Subject        @relation(fields: [subjectId], references: [id])
+  grade             String
+  defaultMonthlyFee Int?
+  colour            String         @default("#6366f1")
+  enrollments       Enrollment[]
+  scheduleSlots     ScheduleSlot[]
+  sessions          ClassSession[]
+  assignments       Assignment[]
+  assessments       Assessment[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Enrollment {
+  id           String     @id @default(cuid())
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classGroupId String
+  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  enrolledAt   DateTime   @default(now())
+
+  @@unique([studentId, classGroupId])
+}
+
+model ScheduleSlot {
+  id           String     @id @default(cuid())
+  classGroupId String
+  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int
+  startTime    String
+  endTime      String
+  isTestSlot   Boolean    @default(false)
+
+  @@index([classGroupId])
+}
+
+model ClassSession {
+  id           String         @id @default(cuid())
+  classGroupId String
+  classGroup   ClassGroup     @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  date         DateTime
+  startTime    String
+  endTime      String
+  status       SessionStatus  @default(SCHEDULED)
+  homeworkNote String?
+  isTest       Boolean        @default(false)
+  attendances  Attendance[]
+  topics       SessionTopic[]
+  assignments  Assignment[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([classGroupId, date])
+  @@index([date])
+}
+
+model SessionTopic {
+  id        String       @id @default(cuid())
+  sessionId String
+  session   ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  topicId   String
+  topic     Topic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, topicId])
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  sessionId String
+  session   ClassSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status    AttendanceStatus @default(PRESENT)
+  note      String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([sessionId, studentId])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  periodMonth String
+  amountDue   Int
+  discount    Int           @default(0)
+  dueDate     DateTime
+  status      InvoiceStatus @default(UNPAID)
+  notes       String?
+  payments    Payment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([studentId, periodMonth])
+  @@index([periodMonth])
+  @@index([status])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Int
+  paidAt    DateTime      @default(now())
+  method    PaymentMethod @default(CASH)
+  reference String?
+  receiptNo String?
+  notes     String?
+  createdAt DateTime      @default(now())
+}
+
+model Assignment {
+  id           String       @id @default(cuid())
+  classGroupId String
+  classGroup   ClassGroup   @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  sessionId    String?
+  session      ClassSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  title        String
+  description  String?
+  dueDate      DateTime
+  maxMarks     Int          @default(100)
+  submissions  Submission[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([classGroupId])
+  @@index([dueDate])
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status       SubmissionStatus @default(PENDING)
+  marks        Int?
+  feedback     String?
+  submittedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([assignmentId, studentId])
+}
+
+model Assessment {
+  id           String     @id @default(cuid())
+  classGroupId String
+  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  testDate     DateTime
+  maxMarks     Int        @default(100)
+  questions    Question[]
+  results      Result[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([classGroupId])
+}
+
+model Question {
+  id           String          @id @default(cuid())
+  assessmentId String
+  assessment   Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  topicId      String?
+  topic        Topic?          @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  number       Int
+  text         String
+  maxMarks     Int
+  scores       QuestionScore[]
+
+  @@index([assessmentId])
+}
+
+model QuestionScore {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  marks      Int      @default(0)
+
+  @@unique([questionId, studentId])
+}
+
+model Result {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  totalMarks   Int        @default(0)
+  grade        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assessmentId, studentId])
+}
