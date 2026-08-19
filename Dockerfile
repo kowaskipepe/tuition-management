@@ -15,6 +15,8 @@ RUN npm ci
 
 COPY . .
 
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
+
 RUN npx prisma generate && npm run build
 
 RUN mkdir -p /data
@@ -25,4 +27,4 @@ ENV HOSTNAME=0.0.0.0
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && echo \"Starting Next.js on port ${PORT:-3000}\" && exec npm run start"]
+CMD ["/app/start.sh"]
